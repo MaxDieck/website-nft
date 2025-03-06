@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT-Handelssimulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #e3f2fd;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        .container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+            margin-top: 30px;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #1565c0;
+        }
+        .input-field, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .nft-card, .wallet-item {
+            display: flex;
+            align-items: center;
+            background: #bbdefb;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .nft-card img, .wallet-item img {
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            object-fit: cover;
+            margin-right: 20px;
+        }
+        .nft-info {
+            flex: 1;
+        }
+        .button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .buy { background: #1e88e5; }
+        .sell { background: #d32f2f; }
+        .create { background: #4CAF50; }
+        .transfer { background: #1976d2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NFT-Handelssimulation</h1>
+        <h2>Profil auswählen</h2>
+        <select id="profile" onchange="updateUI()">
+            <option value="Jonas">Jonas</option>
+            <option value="Raphael">Raphael</option>
+            <option value="Maximilian Dieck">Maximilian Dieck</option>
+        </select>
+        <p>Guthaben: <span id="balanceETH">20</span> ETH / <span id="balanceEUR">50000</span> €</p>
+
+        <h2>Neues NFT erstellen</h2>
+        <input type="file" id="nftImage" accept="image/*" class="input-field">
+        <input type="text" id="nftName" placeholder="NFT Name" class="input-field">
+        <input type="number" id="nftPrice" placeholder="Preis in ETH" class="input-field">
+        <button class="button create" onclick="createNFT()">NFT erstellen</button>
+
+        <h2>Marktplatz</h2>
+        <div id="marketplace"></div>
+
+        <h2>Meine Wallet</h2>
+        <div id="wallet"><p>Noch keine NFTs in der Wallet.</p></div>
+    </div>
+
+    <script>
+        const ETH_TO_EUR = 2500;
+        const profiles = {
+            Jonas: { balance: 20, nfts: [] },
+            Raphael: { balance: 20, nfts: [] },
+            "Maximilian Dieck": { balance: 20, nfts: [] }
+        };
+
+        const marketplace = [];
+
+        function getCurrentProfile() {
+            return document.getElementById('profile').value;
+        }
+
+        function updateUI() {
+            const profile = getCurrentProfile();
+            document.getElementById('balanceETH').innerText = profiles[profile].balance.toFixed(2);
+            document.getElementById('balanceEUR').innerText = (profiles[profile].balance * ETH_TO_EUR).toFixed(2);
+
+            const walletContainer = document.getElementById('wallet');
+            const nfts = profiles[profile].nfts;
+            walletContainer.innerHTML = nfts.length
+                ? nfts.map(nft => `
+                    <div class="wallet-item">
+                        <img src="${nft.image}" alt="${nft.name}">
+                        <div class="nft-info">
+                            <h3>${nft.name}</h3>
+                            <p>Preis: ${nft.price} ETH / ${(nft.price * ETH_TO_EUR).toFixed(2)} €</p>
+                            <button class="button sell" onclick="sellNFT('${nft.name}')">Verkaufen</button>
+                            <button class="button transfer" onclick="transferNFT('${nft.name}')">Versenden</button>
+                        </div>
+                    </div>
+                `).join('')
+                : '<p>Noch keine NFTs in der Wallet.</p>';
+
+            const marketplaceContainer = document.getElementById('marketplace');
+            marketplaceContainer.innerHTML = marketplace.map(nft => `
+                <div class="nft-card">
+                    <img src="${nft.image}" alt="${nft.name}">
+                    <div class="nft-info">
+                        <h3>${nft.name}</h3>
+                        <p>Preis: ${nft.price} ETH / ${(nft.price * ETH_TO_EUR).toFixed(2)} €</p>
+                        <button class="button buy" onclick="buyNFT('${nft.name}')">Kaufen</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function createNFT() {
+            const fileInput = document.getElementById('nftImage');
+            const name = document.getElementById('nftName').value;
+            const price = parseFloat(document.getElementById('nftPrice').value);
+            const profile = getCurrentProfile();
+
+            if (!fileInput.files[0] || !name || isNaN(price)) {
+                alert('Bitte alle Felder ausfüllen.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const image = e.target.result;
+                marketplace.push({ name, price, image, owner: profile });
+                updateUI();
+            };
+            reader.readAsDataURL(fileInput.files[0]);
+        }
+
+        function buyNFT(name) {
+            const profile = getCurrentProfile();
+            const nft = marketplace.find(nft => nft.name === name);
+
+            if (profiles[profile].balance >= nft.price) {
+                profiles[profile].balance -= nft.price;
+                profiles[profile].nfts.push(nft);
+                marketplace.splice(marketplace.indexOf(nft), 1);
+                profiles[nft.owner].balance += nft.price;
+                updateUI();
+            } else {
+                alert('Nicht genügend Guthaben.');
+            }
+        }
+
+        function sellNFT(name) {
+            const profile = getCurrentProfile();
+            const nftIndex = profiles[profile].nfts.findIndex(nft => nft.name === name);
+            const nft = profiles[profile].nfts[nftIndex];
+            const newPrice = parseFloat(prompt('Neuen Verkaufspreis in ETH festlegen:', nft.price));
+
+            if (!isNaN(newPrice)) {
+                nft.price = newPrice;
+                marketplace.push(nft);
+                profiles[profile].nfts.splice(nftIndex, 1);
+                updateUI();
+            } else {
+                alert('Ungültiger Preis.');
+            }
+        }
+
+        function transferNFT(name) {
+            const recipient = prompt('Empfängerprofil (Jonas, Raphael, Maximilian Dieck):');
+            if (!profiles[recipient]) {
+                alert('Ungültiger Empfänger.');
+                return;
+            }
+
+            const profile = getCurrentProfile();
+            const nftIndex = profiles[profile].nfts.findIndex(nft => nft.name === name);
+            const nft = profiles[profile].nfts[nftIndex];
+
+            profiles[recipient].nfts.push(nft);
+            profiles[profile].nfts.splice(nftIndex, 1);
+            updateUI();
+        }
+
+        window.onload = updateUI;
+    </script>
+</body>
+</html>
